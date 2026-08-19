@@ -6,11 +6,18 @@ function formatPrice(cents: number): string {
 }
 
 export function ProductCard({ product }: { product: Product }) {
+  const contents: string[] = product.contents ? JSON.parse(product.contents) : [];
+
   return (
     <Link to={`/products/${product.id}`} className="product-card">
+      {product.category === "box" && <span className="box-badge">🎁 Box</span>}
       <img src={product.image} alt={product.name} loading="lazy" />
       <h3>{product.name}</h3>
-      <p className="type">{product.type}</p>
+      {product.category === "box" ? (
+        <p className="type">Includes: {contents.join(", ")}</p>
+      ) : (
+        <p className="type">{product.type}</p>
+      )}
       <p className="price">{formatPrice(product.price)}</p>
     </Link>
   );

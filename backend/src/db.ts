@@ -13,7 +13,9 @@ db.exec(`
     type TEXT NOT NULL,
     price INTEGER NOT NULL,
     description TEXT NOT NULL,
-    image TEXT NOT NULL
+    image TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'single',
+    contents TEXT
   );
 
   CREATE TABLE IF NOT EXISTS cart_items (

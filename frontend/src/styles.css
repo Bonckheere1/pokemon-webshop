@@ -65,6 +65,40 @@ main {
   transform: translateY(-4px);
 }
 
+.product-card {
+  position: relative;
+}
+
+.box-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: #ffcb05;
+  color: #22252a;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.tab {
+  background: white;
+  color: #22252a;
+  border: 1px solid #ddd;
+}
+
+.tab.active {
+  background: #cc0000;
+  color: white;
+  border-color: #cc0000;
+}
+
 .product-card img {
   width: 96px;
   height: 96px;

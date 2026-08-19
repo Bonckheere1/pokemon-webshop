@@ -8,7 +8,9 @@ A small full-stack webshop for buying Pokémon. Built as a demo/test app — not
 
 ## Features
 
-- Product grid seeded with ~16 Pokémon, each with a type, price, description and sprite.
+- Product grid seeded with 26 Pokémon, each with a type, price, description and sprite.
+- Pokémon boxes — themed bundles (e.g. "Kanto Starters Box", "Legendary Vault Box") that behave like
+  any other product, browsable in a separate "Boxes" tab on the home page.
 - Product detail page with quantity selector and "Add to cart".
 - Session-based cart (a `sessionId` cookie identifies the cart, no login required) stored in SQLite.
 - Checkout flow that totals the cart, creates an order row, and clears the cart.

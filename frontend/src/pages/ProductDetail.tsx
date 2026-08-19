@@ -21,6 +21,8 @@ export function ProductDetail() {
 
   if (!product) return <p className="status">Loading...</p>;
 
+  const contents: string[] = product.contents ? JSON.parse(product.contents) : [];
+
   async function handleAddToCart() {
     setAdding(true);
     try {
@@ -36,7 +38,11 @@ export function ProductDetail() {
       <img src={product.image} alt={product.name} />
       <div>
         <h2>{product.name}</h2>
-        <p className="type">{product.type}</p>
+        {product.category === "box" ? (
+          <p className="type">Includes: {contents.join(", ")}</p>
+        ) : (
+          <p className="type">{product.type}</p>
+        )}
         <p className="description">{product.description}</p>
         <p className="price">{formatPrice(product.price)}</p>
         <div className="quantity-row">

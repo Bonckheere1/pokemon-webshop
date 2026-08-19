@@ -13,6 +13,11 @@ export async function fetchProducts(): Promise<Product[]> {
   return data;
 }
 
+export async function fetchBoxes(): Promise<Product[]> {
+  const { data } = await client.get<Product[]>("/boxes");
+  return data;
+}
+
 export async function fetchProduct(id: string): Promise<Product> {
   const { data } = await client.get<Product>(`/products/${id}`);
   return data;

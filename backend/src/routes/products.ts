@@ -4,7 +4,7 @@ import { db } from "../db";
 export const productsRouter = Router();
 
 productsRouter.get("/", (_req, res) => {
-  const products = db.prepare("SELECT * FROM products ORDER BY id").all();
+  const products = db.prepare("SELECT * FROM products WHERE category = 'single' ORDER BY id").all();
   res.json(products);
 });
 

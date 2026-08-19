@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import crypto from "node:crypto";
 import "./seed";
 import { productsRouter } from "./routes/products";
+import { boxesRouter } from "./routes/boxes";
 import { cartRouter } from "./routes/cart";
 import { imageProxyRouter } from "./routes/imageProxy";
 
@@ -25,6 +26,7 @@ app.use((req, res, next) => {
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 app.use("/api/products", productsRouter);
+app.use("/api/boxes", boxesRouter);
 app.use("/api/cart", cartRouter);
 app.use("/api/image-proxy", imageProxyRouter);
 
