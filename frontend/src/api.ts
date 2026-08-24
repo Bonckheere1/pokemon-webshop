@@ -8,8 +8,8 @@ const client = axios.create({
   withCredentials: true,
 });
 
-export async function fetchProducts(): Promise<Product[]> {
-  const { data } = await client.get<Product[]>("/products");
+export async function fetchProducts(sort?: string): Promise<Product[]> {
+  const { data } = await client.get<Product[]>("/products", { params: sort ? { sort } : undefined });
   return data;
 }
 

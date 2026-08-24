@@ -3,8 +3,16 @@ import { db } from "../db";
 
 export const productsRouter = Router();
 
-productsRouter.get("/", (_req, res) => {
-  const products = db.prepare("SELECT * FROM products ORDER BY id").all();
+// `sort` picks the ORDER BY column/direction and is interpolated directly
+// into the SQL string instead of being checked against an allowlist of
+// known-safe columns. The frontend only ever sends "id", "price ASC",
+// "price DESC" or "name ASC", but nothing stops a direct request from
+// passing any SQL expression here (CWE-89 SQL injection via ORDER BY
+// clause) - e.g. ?sort=(CASE WHEN(1=1)THEN price ELSE id END) is a
+// boolean-blind read primitive even without a UNION.
+productsRouter.get("/", (req, res) => {
+  const sort = typeof req.query.sort === "string" ? req.query.sort : "id";
+  const products = db.prepare(`SELECT * FROM products ORDER BY ${sort}`).all();
   res.json(products);
 });
 
