@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { db } from "./db";
 
 const products = [
@@ -32,4 +33,58 @@ if (count.c === 0) {
   console.log(`Seeded ${products.length} products.`);
 } else {
   console.log("Products already seeded, skipping.");
+}
+
+const gradedCardSeed = [
+  {
+    card_name: "Charizard",
+    set_name: "Base Set (1999)",
+    grading_company: "PSA",
+    grade: "PSA 9",
+    cert_number: "PSA10293847",
+    price: 189900,
+    image: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png",
+  },
+  {
+    card_name: "Blastoise",
+    set_name: "Base Set (1999)",
+    grading_company: "PSA",
+    grade: "PSA 10",
+    cert_number: "PSA55811203",
+    price: 249900,
+    image: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/9.png",
+  },
+  {
+    card_name: "Umbreon",
+    set_name: "Neo Discovery (2001)",
+    grading_company: "CGC",
+    grade: "CGC 9.5",
+    cert_number: "CGC30498215",
+    price: 64900,
+    image: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/197.png",
+  },
+];
+
+const sellerCount = db.prepare("SELECT COUNT(*) as c FROM sellers").get() as { c: number };
+
+if (sellerCount.c === 0) {
+  // Demo storefront seller so the marketplace has listings out of the box.
+  // Credentials are intentionally simple/public - this is a seeded demo
+  // account for a training fixture, not a real store.
+  const passwordHash = crypto.createHash("md5").update("demo1234").digest("hex");
+  const seller = db
+    .prepare("INSERT INTO sellers (username, password_hash) VALUES (?, ?)")
+    .run("demo_seller", passwordHash);
+
+  const insertCard = db.prepare(
+    `INSERT INTO graded_cards (seller_id, card_name, set_name, grading_company, grade, cert_number, price, image)
+     VALUES (@seller_id, @card_name, @set_name, @grading_company, @grade, @cert_number, @price, @image)`
+  );
+  const insertCards = db.transaction((rows: typeof gradedCardSeed) => {
+    for (const row of rows) insertCard.run({ ...row, seller_id: seller.lastInsertRowid });
+  });
+  insertCards(gradedCardSeed);
+  console.log(`Seeded demo seller "demo_seller" (password: demo1234) with ${gradedCardSeed.length} graded card listings.`);
+} else {
+  console.log("Sellers already seeded, skipping.");
 }

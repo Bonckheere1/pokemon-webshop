@@ -31,4 +31,36 @@ db.exec(`
     total INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS sellers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS graded_cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    seller_id INTEGER NOT NULL,
+    card_name TEXT NOT NULL,
+    set_name TEXT NOT NULL,
+    grading_company TEXT NOT NULL,
+    grade TEXT NOT NULL,
+    cert_number TEXT NOT NULL,
+    price INTEGER NOT NULL,
+    image TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'listed',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (seller_id) REFERENCES sellers(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS graded_card_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    graded_card_id INTEGER NOT NULL,
+    buyer_session_id TEXT NOT NULL,
+    trade_in_value INTEGER NOT NULL DEFAULT 0,
+    final_price INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (graded_card_id) REFERENCES graded_cards(id)
+  );
 `);

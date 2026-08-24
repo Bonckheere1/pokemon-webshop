@@ -12,6 +12,9 @@ A small full-stack webshop for buying Pokémon. Built as a demo/test app — not
 - Product detail page with quantity selector and "Add to cart".
 - Session-based cart (a `sessionId` cookie identifies the cart, no login required) stored in SQLite.
 - Checkout flow that totals the cart, creates an order row, and clears the cart.
+- Graded card marketplace — sellers register/log in, list professionally graded singles (grading
+  company, grade, cert number, price) for sale, and buyers browse/search and buy them, optionally
+  applying a trade-in credit at checkout. See `/graded-cards` and `/sell`.
 
 ## Project structure
 
@@ -23,17 +26,20 @@ pokemon-webshop/
 │   ├── src/
 │   │   ├── server.ts        entrypoint, session cookie, route mounting
 │   │   ├── db.ts             SQLite connection + schema
-│   │   ├── seed.ts           seeds products on first boot
+│   │   ├── seed.ts           seeds products + a demo seller/listings on first boot
+│   │   ├── auth.ts           seller JWT signing + requireSeller middleware (see below)
 │   │   └── routes/
 │   │       ├── products.ts
 │   │       ├── cart.ts
-│   │       └── imageProxy.ts
+│   │       ├── imageProxy.ts
+│   │       ├── gradedCards.ts  listings, search, purchase (see below)
+│   │       └── sellerAuth.ts   seller register/login (see below)
 │   └── data/                 SQLite file lives here (gitignored)
 └── frontend/
     ├── Dockerfile
     ├── nginx.conf
     └── src/
-        ├── pages/            Home, ProductDetail, Cart
+        ├── pages/            Home, ProductDetail, Cart, GradedCards, GradedCardDetail, Sell
         ├── components/       Navbar, ProductCard
         └── api.ts            axios client for the backend API
 ```
@@ -88,3 +94,30 @@ after `npm install` — re-run it there to get current advisory data for your ow
 
 To reset for normal development, bump these to current versions and swap the base images for
 `node:lts` / `nginx:stable` (or alpine variants).
+
+## Injected source-code vulnerabilities (this branch)
+
+On top of the dependency/base-image CVEs above, the graded-card marketplace added in this branch
+carries its own set of hand-written vulnerabilities in real, reachable application code, in the
+same spirit as (and mostly independent from) the ones in the checkout/admin PR. **Every entry
+below was manually exploited against a running instance to confirm it's a real, working bug** —
+see the PR description for exact `curl` commands, including a full chain run against the seeded
+demo listings.
+
+| # | Vulnerability | CWE | Where | How it's reachable |
+|---|---|---|---|---|
+| 1 | Broken authentication — signature never verified | CWE-347 | `auth.ts` `requireSeller` | The seller-auth middleware reads the Authorization bearer token with `jwt.decode()` instead of `jwt.verify()`. `decode()` only base64-decodes the payload; it never checks the token against `JWT_SECRET`. Anyone can hand-craft a token with any `sellerId` and an arbitrary/empty signature segment and be treated as that seller — no login, no secret, no valid signature required. |
+| 2 | Weak password storage | CWE-916 | `routes/sellerAuth.ts` `hashPassword` | Seller passwords are hashed with unsalted MD5 — fast, unsalted, and trivially reversible with a rainbow table if the hash table is ever read (see #4). |
+| 3 | IDOR / broken object-level authorization | CWE-639 | `routes/gradedCards.ts` `PATCH /:id`, `DELETE /:id` | Both routes require *a* valid-shaped seller token (via #1) but never check that the token's `sellerId` actually owns the listing being modified. Any seller — or an attacker with a forged token for a `sellerId` that never even registered — can reprice, mark-sold, or delete any other seller's listing. |
+| 4 | SQL injection | CWE-89 | `routes/gradedCards.ts` `GET /graded-cards/search` | `company` and `grade` query params are concatenated directly into the `WHERE` clause. A UNION payload matching `graded_cards`'s 11 columns (e.g. `' UNION SELECT id,id,username,password_hash,'x','x','x',0,'x','listed',created_at FROM sellers --`) dumps every seller's username and password hash through the public search endpoint. |
+| 5 | OS command injection | CWE-78 | `routes/gradedCards.ts` `logCertVerification` | Creating a listing logs the submitted `certNumber` via an unquoted, unsanitized `child_process.exec` shell string. A cert number like `PSA1; touch /tmp/pwned #` runs arbitrary commands the moment a seller (or an attacker with a forged token per #1) lists a card. |
+| 6 | Business logic flaw — client-supplied trade-in value trusted verbatim | CWE-840 | `routes/gradedCards.ts` `POST /:id/purchase` | `tradeInValue` from the request body is subtracted from the listing's server-side price with no appraisal step, no floor, and no cap, so a buyer can set it equal to (or above) the listing price and acquire a graded card for free. |
+
+Chain example (#1 → #3 → #6), run against the seeded `demo_seller` listings with **no real seller
+credentials at any point**: forge a token claiming `sellerId: 1` (the real `demo_seller`) with a
+throwaway signature → `PATCH /api/graded-cards/2` to drop the seeded $2,499.00 PSA 10 Blastoise to
+$0.01 → `POST /api/graded-cards/2/purchase` as an anonymous buyer. Verified end to end; the
+purchase completes for $0.01.
+
+Separately, #4 gives a second, fully independent path to the same seller accounts: the SQLi
+dumps `sellers.password_hash`, which (per #2) is crackable offline in seconds.

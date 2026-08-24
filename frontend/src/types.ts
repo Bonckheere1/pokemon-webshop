@@ -12,3 +12,27 @@ export interface CartItem extends Product {
   quantity: number;
   notes: string | null;
 }
+
+export interface GradedCard {
+  id: number;
+  seller_id: number;
+  card_name: string;
+  set_name: string;
+  grading_company: string;
+  grade: string;
+  cert_number: string;
+  price: number;
+  image: string;
+  status: string;
+  created_at: string;
+}
+
+export interface NewGradedCardListing {
+  cardName: string;
+  setName?: string;
+  gradingCompany: string;
+  grade: string;
+  certNumber: string;
+  price: number;
+  image?: string;
+}
