@@ -27,13 +27,17 @@ pokemon-webshop/
 │   │   └── routes/
 │   │       ├── products.ts
 │   │       ├── cart.ts
-│   │       └── imageProxy.ts
+│   │       ├── imageProxy.ts
+│   │       ├── orders.ts      order lookup + receipt generation (see below)
+│   │       ├── admin.ts       admin login + dashboard (see below)
+│   │       └── assets.ts      static asset download (see below)
+│   ├── assets/                sample files served by assets.ts
 │   └── data/                 SQLite file lives here (gitignored)
 └── frontend/
     ├── Dockerfile
     ├── nginx.conf
     └── src/
-        ├── pages/            Home, ProductDetail, Cart
+        ├── pages/            Home, ProductDetail, Cart, OrderConfirmation, Admin
         ├── components/       Navbar, ProductCard
         └── api.ts            axios client for the backend API
 ```
@@ -88,3 +92,30 @@ after `npm install` — re-run it there to get current advisory data for your ow
 
 To reset for normal development, bump these to current versions and swap the base images for
 `node:lts` / `nginx:stable` (or alpine variants).
+
+## Injected source-code vulnerabilities (this branch)
+
+On top of the dependency/base-image CVEs above, this branch adds hand-written vulnerabilities
+into real, reachable application code — some classic SAST bait (tainted input into a raw SQL
+string, a shell command, a filesystem path), and some the kind of authorization/business-logic
+bugs that need semantic understanding rather than a pattern match to catch. **Every entry below
+was manually exploited against the running Docker containers to confirm it's a real, working bug,
+not just suspicious-looking code** (see the PR description for exact commands). None of this
+should be reused anywhere real.
+
+| # | Vulnerability | CWE | Where | How it's reachable |
+|---|---|---|---|---|
+| 1 | Broken authentication — hardcoded plaintext password, credential logged on every attempt | CWE-798, CWE-532 | `routes/admin.ts` `POST /api/admin/login` | Password compared with `===` against a source-level constant; every attempt (including the raw password) is `console.log`'d. |
+| 2 | Broken access control — authorization is an unsigned, client-readable cookie | CWE-287, CWE-565 | `routes/admin.ts` `requireAdmin` | `role=admin` is checked by literal string match; setting that cookie by hand (`--cookie "role=admin"`) grants admin access with **no** password. Cookie also isn't `httpOnly`. |
+| 3 | IDOR / broken object-level authorization | CWE-639 | `routes/orders.ts` `GET /api/orders/:id` | No check that the requesting session owns the order — any session can page through order ids and read another customer's name, email, gift message and total. |
+| 4 | OS command injection | CWE-78 | `routes/orders.ts` `GET /api/orders/:id/receipt` | `:id` is interpolated unquoted into a shell string passed to `child_process.exec`; e.g. id `1;touch /tmp/pwned #` runs an arbitrary command. Runs as **root** in the container (base image doesn't drop privileges). |
+| 5 | SQL injection | CWE-89 | `routes/products.ts` `GET /api/products/search?type=` | `type` is concatenated directly into the SQL string instead of using a bound parameter; a `' UNION SELECT ...--` payload returns attacker-chosen rows. |
+| 6 | Path traversal | CWE-22 | `routes/assets.ts` `GET /api/assets/:filename` | `path.join(ASSETS_DIR, filename)` never checks the resolved path stays under `ASSETS_DIR`; a URL-encoded `..%2f` segment escapes it (verified reading `backend/package.json`). |
+| 7 | Business logic flaw — client-supplied discount trusted verbatim | CWE-840 | `routes/cart.ts` `POST /api/cart/checkout` | `discountAmount` from the request body is subtracted from the server-computed subtotal with no server-side coupon validation and no floor, so checkout can go arbitrarily negative. |
+| 8 | Stored XSS, chained into cookie theft | CWE-79 | `pages/OrderConfirmation.tsx`, `pages/Admin.tsx` | `gift_message` (attacker-controlled at checkout) is rendered via `dangerouslySetInnerHTML` with no sanitization on both the customer order page and the admin dashboard — combined with #2/#3, an attacker can craft an order whose gift message steals the non-`httpOnly` `role` cookie once an admin views it. |
+| 9 | Improper certificate validation | CWE-295 | `routes/imageProxy.ts` | The proxy's axios client is configured with `httpsAgent: new https.Agent({ rejectUnauthorized: false })`, disabling TLS verification for every outbound fetch. |
+
+Chain example (#2 → #3 → #8): an attacker checks out with a gift message containing a `<script>`
+that reads `document.cookie` and exfiltrates it, notes the resulting order id, and either waits
+for an admin to browse `/admin` or forges the admin cookie directly per #2 — either path leads to
+full admin takeover without ever knowing the real password.
