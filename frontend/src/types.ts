@@ -12,3 +12,27 @@ export interface CartItem extends Product {
   quantity: number;
   notes: string | null;
 }
+
+export interface OrderItem {
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+export interface Order {
+  id: number;
+  session_id: string;
+  customer_name: string | null;
+  customer_email: string | null;
+  gift_message: string | null;
+  total: number;
+  created_at: string;
+  items: OrderItem[];
+}
+
+export interface CheckoutPayload {
+  customerName?: string;
+  customerEmail?: string;
+  giftMessage?: string;
+  discountAmount?: number;
+}

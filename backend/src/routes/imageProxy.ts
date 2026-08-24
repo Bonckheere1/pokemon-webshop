@@ -1,7 +1,14 @@
 import { Router } from "express";
 import axios from "axios";
+import https from "node:https";
 
 export const imageProxyRouter = Router();
+
+// Some fan-art hosts serve broken/self-signed TLS chains, so cert validation
+// is disabled here rather than fixed properly (CWE-295 improper certificate
+// validation) - this makes every request from this endpoint vulnerable to
+// on-path MITM tampering of the "image" bytes returned to users.
+const insecureAgent = new https.Agent({ rejectUnauthorized: false });
 
 // Lets the frontend render a custom sprite URL (e.g. fan art) without hitting
 // browser CORS restrictions, by fetching it server-side and streaming it back.
@@ -16,7 +23,7 @@ imageProxyRouter.get("/", async (req, res) => {
   }
 
   try {
-    const response = await axios.get(url, { responseType: "arraybuffer" });
+    const response = await axios.get(url, { responseType: "arraybuffer", httpsAgent: insecureAgent });
     res.setHeader("Content-Type", response.headers["content-type"] ?? "application/octet-stream");
     res.send(Buffer.from(response.data));
   } catch (err) {

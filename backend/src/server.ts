@@ -6,6 +6,9 @@ import "./seed";
 import { productsRouter } from "./routes/products";
 import { cartRouter } from "./routes/cart";
 import { imageProxyRouter } from "./routes/imageProxy";
+import { ordersRouter } from "./routes/orders";
+import { adminRouter } from "./routes/admin";
+import { assetsRouter } from "./routes/assets";
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
@@ -27,6 +30,9 @@ app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 app.use("/api/products", productsRouter);
 app.use("/api/cart", cartRouter);
 app.use("/api/image-proxy", imageProxyRouter);
+app.use("/api/orders", ordersRouter);
+app.use("/api/admin", adminRouter);
+app.use("/api/assets", assetsRouter);
 
 app.listen(PORT, () => {
   console.log(`Pokémon webshop API listening on port ${PORT}`);
