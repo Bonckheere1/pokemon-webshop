@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { CartItem, Product } from "./types";
+import type { CartItem, CheckoutPayload, Order, Product } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
 
@@ -31,7 +31,21 @@ export async function removeFromCart(cartItemId: number): Promise<void> {
   await client.delete(`/cart/${cartItemId}`);
 }
 
-export async function checkout(): Promise<{ orderId: number; total: number }> {
-  const { data } = await client.post("/cart/checkout");
+export async function checkout(payload: CheckoutPayload): Promise<{ orderId: number; total: number }> {
+  const { data } = await client.post("/cart/checkout", payload);
+  return data;
+}
+
+export async function fetchOrder(id: string): Promise<Order> {
+  const { data } = await client.get<Order>(`/orders/${id}`);
+  return data;
+}
+
+export async function adminLogin(password: string): Promise<void> {
+  await client.post("/admin/login", { password });
+}
+
+export async function fetchAdminOrders(): Promise<Order[]> {
+  const { data } = await client.get<Order[]>("/admin/orders");
   return data;
 }

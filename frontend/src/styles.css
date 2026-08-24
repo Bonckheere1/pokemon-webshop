@@ -150,3 +150,61 @@ button:disabled {
   align-items: center;
   padding-top: 1rem;
 }
+
+.checkout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: white;
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.checkout-form label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.checkout-form input,
+.checkout-form textarea {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.order-confirmation,
+.admin-login,
+.admin-orders {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.order-items {
+  padding-left: 1.2rem;
+}
+
+.gift-message {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fff8e1;
+  border-radius: 8px;
+}
+
+.admin-login input {
+  display: block;
+  margin: 1rem 0;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.admin-order {
+  border-bottom: 1px solid #eee;
+  padding: 1rem 0;
+}

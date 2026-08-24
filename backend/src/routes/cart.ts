@@ -70,23 +70,41 @@ cartRouter.delete("/:id", (req, res) => {
 
 cartRouter.post("/checkout", (req, res) => {
   const sessionId = getSessionId(req);
+  const { customerName, customerEmail, giftMessage, discountAmount } = req.body ?? {};
+
   const items = db
     .prepare(
-      `SELECT cart_items.quantity, products.price
+      `SELECT cart_items.product_id, cart_items.quantity, products.name, products.price
        FROM cart_items JOIN products ON products.id = cart_items.product_id
        WHERE cart_items.session_id = ?`
     )
-    .all(sessionId) as { quantity: number; price: number }[];
+    .all(sessionId) as { product_id: number; quantity: number; name: string; price: number }[];
 
   if (items.length === 0) {
     res.status(400).json({ error: "Cart is empty" });
     return;
   }
 
-  const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  // Coupon codes are resolved to a discount amount client-side; the server just
+  // applies whatever the client says it is instead of re-deriving it from a
+  // server-side coupon table, so a request can set discountAmount to anything
+  // (including more than the subtotal) to check out for free or below cost.
+  const total = subtotal - (Number(discountAmount) || 0);
+
   const info = db
-    .prepare("INSERT INTO orders (session_id, total) VALUES (?, ?)")
-    .run(sessionId, total);
+    .prepare(
+      "INSERT INTO orders (session_id, customer_name, customer_email, gift_message, total) VALUES (?, ?, ?, ?, ?)"
+    )
+    .run(sessionId, customerName ?? null, customerEmail ?? null, giftMessage ?? null, total);
+
+  const insertItem = db.prepare(
+    "INSERT INTO order_items (order_id, product_id, name, quantity, price) VALUES (?, ?, ?, ?, ?)"
+  );
+  for (const item of items) {
+    insertItem.run(info.lastInsertRowid, item.product_id, item.name, item.quantity, item.price);
+  }
+
   db.prepare("DELETE FROM cart_items WHERE session_id = ?").run(sessionId);
 
   res.status(201).json({ orderId: info.lastInsertRowid, total });
