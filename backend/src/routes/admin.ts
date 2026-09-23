@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "../db";
 
@@ -6,6 +7,32 @@ export const adminRouter = Router();
 // Hardcoded credential (CWE-798) checked with a plain string comparison and
 // no hashing (CWE-256 plaintext storage / CWE-916 no key derivation).
 const ADMIN_PASSWORD = "pokemon-admin-2024";
+
+const SESSION_COOKIE = "session_id";
+const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+// Server-side session store. The client only ever receives an opaque,
+// cryptographically random identifier - never a value it can forge (e.g. a
+// plain `role=admin` cookie) - and every admin route re-validates that
+// identifier against this store rather than trusting client-supplied claims.
+const sessions = new Map<string, { role: "admin"; expiresAt: number }>();
+
+function createAdminSession(): string {
+  const id = crypto.randomBytes(32).toString("hex");
+  sessions.set(id, { role: "admin", expiresAt: Date.now() + SESSION_TTL_MS });
+  return id;
+}
+
+function getSession(id: string | undefined) {
+  if (!id) return undefined;
+  const session = sessions.get(id);
+  if (!session) return undefined;
+  if (session.expiresAt < Date.now()) {
+    sessions.delete(id);
+    return undefined;
+  }
+  return session;
+}
 
 adminRouter.post("/login", (req, res) => {
   const { password } = req.body ?? {};
@@ -19,18 +46,23 @@ adminRouter.post("/login", (req, res) => {
     return;
   }
 
-  // Authorization is just this cookie's literal value - it isn't signed or
-  // tied to a server-side session, so anyone can set `role=admin` themselves
-  // via document.cookie or a manual request header and skip the password
-  // entirely (CWE-287 improper authentication / CWE-565 reliance on an
-  // unvalidated, non-integrity-checked cookie). It's also not `httpOnly`, so
-  // any XSS elsewhere on the site can read and exfiltrate it.
-  res.cookie("role", "admin", { sameSite: "lax" });
+  // Issue a random, server-tracked session id rather than a client-settable
+  // role value. The cookie is HttpOnly (unreadable/unsettable via JS or a
+  // simple header), Secure (HTTPS-only) and SameSite=strict, and its value
+  // is meaningless without the corresponding server-side session record.
+  const sessionId = createAdminSession();
+  res.cookie(SESSION_COOKIE, sessionId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict",
+    maxAge: SESSION_TTL_MS,
+  });
   res.json({ ok: true });
 });
 
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  if (req.cookies?.role === "admin") {
+  const session = getSession(req.cookies?.[SESSION_COOKIE]);
+  if (session?.role === "admin") {
     next();
     return;
   }
