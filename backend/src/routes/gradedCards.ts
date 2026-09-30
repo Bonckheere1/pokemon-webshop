@@ -29,23 +29,38 @@ gradedCardsRouter.get("/", (_req, res) => {
   res.json(cards);
 });
 
-// `company` and `grade` are spliced directly into the WHERE clause instead
-// of being bound as parameters, so either one can break out of its string
-// literal (CWE-89 SQL injection). Because the injected SELECT just needs to
-// return the same 11 columns as `graded_cards`, a `company` payload such as
-// `' UNION SELECT id,id,username,password_hash,'x','x','x',0,'x','listed',
-// created_at FROM sellers -- ` dumps every seller's username and password
-// hash straight into the search results, no seller session required.
+// `company` and `grade` are validated for shape/length and then always
+// passed to SQLite as bound parameters (never concatenated into the SQL
+// text), so neither can break out of a string literal or otherwise alter
+// the query (fixes CWE-89 SQL injection).
+const FILTER_PATTERN = /^[A-Za-z0-9 +.'-]{1,32}$/;
+
+function isValidFilter(value: string): boolean {
+  return FILTER_PATTERN.test(value);
+}
+
 gradedCardsRouter.get("/search", (req, res) => {
   const company = typeof req.query.company === "string" ? req.query.company : "";
   const grade = typeof req.query.grade === "string" ? req.query.grade : "";
 
+  if ((company && !isValidFilter(company)) || (grade && !isValidFilter(grade))) {
+    res.status(400).json({ error: "Invalid company or grade filter" });
+    return;
+  }
+
   let sql = "SELECT * FROM graded_cards WHERE status = 'listed'";
-  if (company) sql += ` AND grading_company = '${company}'`;
-  if (grade) sql += ` AND grade = '${grade}'`;
+  const params: string[] = [];
+  if (company) {
+    sql += " AND grading_company = ?";
+    params.push(company);
+  }
+  if (grade) {
+    sql += " AND grade = ?";
+    params.push(grade);
+  }
   sql += " ORDER BY id DESC";
 
-  const results = db.prepare(sql).all();
+  const results = db.prepare(sql).all(...params);
   res.json(results);
 });
 
