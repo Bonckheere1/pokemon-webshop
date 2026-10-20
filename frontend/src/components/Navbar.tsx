@@ -9,6 +9,9 @@ export function Navbar() {
       <Link to="/cart" className="cart-link">
         Cart
       </Link>
+      <Link to="/admin" className="admin-link">
+        Admin
+      </Link>
     </nav>
   );
 }
