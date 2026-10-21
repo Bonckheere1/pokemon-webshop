@@ -27,6 +27,7 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 COPY data ./data
+COPY assets ./assets
 
 EXPOSE 4000
 CMD ["node", "dist/server.js"]
